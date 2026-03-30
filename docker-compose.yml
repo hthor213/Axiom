@@ -1,0 +1,89 @@
+
+# Axiom — Docker Compose
+#
+# Core platform services: dashboard + PostgreSQL.
+# Add your own project services below the platform section.
+#
+# Build & deploy:
+#   git pull && docker compose build --build-arg GIT_COMMIT=$(git rev-parse HEAD) && docker compose up -d
+
+networks:
+  hth-net:
+    driver: bridge
+
+services:
+  # ---- Core platform ----
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    container_name: hth-dashboard
+    ports:
+      - "8014:8014"
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgresql:5432/orchestrator_dev
+      - GIT_COMMIT=${GIT_COMMIT:-unknown}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - ALLOWED_EMAIL=${ALLOWED_EMAIL}
+      - REPO_ROOT=/repo
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - GITHUB_TOKENS=${GITHUB_TOKENS:-}
+      - CLONE_WORKSPACE=/workspace
+    volumes:
+      - .:/repo
+      - ${WORKSPACE_DIR:-./workspace}:/workspace
+      - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
+      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8014/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hth-net
+
+  postgresql:
+    image: postgres:16-alpine
+    container_name: hth-postgresql
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=orchestrator_dev
+    volumes:
+      - ${PG_DATA_DIR:-./pg-data}:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hth-net
+
+  # ---- Your project services go here ----
+  # Example:
+  # my-project:
+  #   build:
+  #     context: /path/to/my-project
+  #   ports:
+  #     - "8002:8000"
+  #   networks:
+  #     - hth-net
+
+# Set PG_DATA_DIR in .env to point at your PostgreSQL data directory.
+# Defaults to ./pg-data for fresh installs.

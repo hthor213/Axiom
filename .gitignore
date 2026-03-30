@@ -1,0 +1,49 @@
+# Decrypted secrets
+credentials/vault.yaml
+credentials/age-key.txt
+
+# Encrypted vault (contains real credentials even when encrypted)
+credentials/vault.enc
+
+# Service configs contain IPs, usernames, and infrastructure details
+services/macstudio.yaml
+services/databases.yaml
+services/auth.yaml
+services/cloud.yaml
+services/notifications.yaml
+
+# Session artifacts
+chat_history.md
+addressed_improvements.md
+.harness.json
+.adversarial-models.json
+.adversarial-report.json
+.adversarial-report.md
+.orchestrator-state.json
+.orchestrator-log.md
+.model-registry.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+.claude/

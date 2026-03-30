@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTH Dashboard — Autonomous Runtime</title>
+    <!-- GSI script loaded dynamically in initGoogleSignIn() -->
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #1a1a1a;
+            --border: #333;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --accent: #4a9eff;
+            --green: #4caf50;
+            --red: #f44336;
+            --orange: #ff9800;
+            --font: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { font-size: 16px; font-weight: 600; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .user-info { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
+        .user-info img { width: 24px; height: 24px; border-radius: 50%; }
+        .user-info a { color: var(--text-dim); cursor: pointer; text-decoration: underline; }
+        .status { font-size: 12px; color: var(--text-dim); }
+        nav {
+            display: flex;
+            gap: 0;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        nav button {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            padding: 10px 20px;
+            font-family: var(--font);
+            font-size: 13px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        nav button:hover { color: var(--text); }
+        nav button.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .card-title { font-weight: 600; font-size: 14px; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-pass { background: var(--green); color: #000; }
+        .badge-fail { background: var(--red); color: #fff; }
+        .badge-running { background: var(--orange); color: #000; }
+        .badge-queued { background: var(--border); color: var(--text); }
+        .badge-draft { background: var(--orange); color: #000; }
+        .badge-done { background: var(--green); color: #000; }
+        .badge-active { background: var(--accent); color: #000; }
+        .badge-live { background: var(--green); color: #000; }
+        .badge-stopped { background: #9c27b0; color: #fff; }
+        .badge-stale { background: var(--border); color: var(--orange); border: 1px solid var(--orange); }
+        .badge-cancelled { background: var(--border); color: var(--text-dim); }
+
+        /* Buttons */
+        .btn {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-family: var(--font);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.8; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-approve { background: var(--green); }
+        .btn-reject { background: var(--red); color: #fff; }
+        .btn-small { padding: 4px 10px; font-size: 12px; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: var(--font);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-outline:hover { background: rgba(74,158,255,0.1); }
+        .btn-danger-outline {
+            background: transparent;
+            border: 1px solid var(--red);
+            color: var(--red);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: var(--font);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-danger-outline:hover { background: rgba(244,67,54,0.1); }
+
+        /* Queue */
+        .spec-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .spec-number { color: var(--text-dim); min-width: 40px; }
+        .spec-title { flex: 1; }
+        .done-when { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+        /* Build expansion */
+        .build-panel {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(74,158,255,0.05);
+            border: 1px solid rgba(74,158,255,0.15);
+            border-radius: 4px;
+        }
+        .build-panel label { display: block; margin: 4px 0; font-size: 13px; cursor: pointer; }
+        .build-panel input[type="checkbox"] { accent-color: var(--accent); margin-right: 6px; }
+
+        /* Live */
+        .log-entry {
+            font-size: 12px;
+            padding: 4px 0;
+            border-bottom: 1px solid #222;
+        }
+        .log-entry .timestamp { color: var(--text-dim); margin-right: 8px; }
+        .log-area {
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        /* Diff */
+        .diff-area {
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 8px 0;
+        }
+
+        /* Actions bar */
+        .actions { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed; top: 16px; right: 16px; z-index: 200;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 6px; padding: 12px 20px;
+            font-size: 13px; max-width: 400px;
+            animation: slideIn 0.2s ease-out;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .toast.error { border-color: var(--red); color: var(--red); }
+        .toast.success { border-color: var(--green); }
+        .toast.warn { border-color: var(--orange); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-dim); font-size: 12px; font-weight: 600; text-transform: uppercase; }
+
+        /* Project selector */
+        .project-selector {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .project-selector select {
+            background: var(--bg); color: var(--text);
+            border: 1px solid var(--border); border-radius: 4px;
+            padding: 4px 8px; font-family: var(--font); font-size: 13px;
+            cursor: pointer; max-width: 220px;
+        }
+        .project-selector select:focus { outline: none; border-color: var(--accent); }
+        #project-sync-icon { font-size: 14px; cursor: default; }
+
+        /* Login */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .login-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 32px;
+            width: 360px;
+            text-align: center;
+        }
+        .login-box h2 { margin-bottom: 8px; font-size: 18px; }
+        .login-box p { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+        #g_id_signin { display: flex; justify-content: center; }
+        .error { color: var(--red); font-size: 12px; margin-top: 12px; }
+        .empty-state { text-align: center; padding: 48px; color: var(--text-dim); }
+
+        /* Drafts */
+        .draft-questions { list-style: none; padding-left: 0; margin: 8px 0; }
+        .draft-question-block { margin: 12px 0; padding: 10px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border); }
+        .draft-question-block h4 { margin: 0 0 6px 0; font-size: 13px; color: var(--accent); }
+        .draft-question-block p { margin: 0 0 8px 0; font-size: 13px; }
+        .draft-option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 3px 0; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .draft-option:hover { background: rgba(99,102,241,0.1); }
+        .draft-option.recommended { border-left: 3px solid var(--accent); font-weight: 500; }
+        .draft-option input[type=radio] { margin: 0; }
+        .draft-textarea {
+            width: 100%; min-height: 80px; background: #111; color: var(--text);
+            border: 1px solid var(--border); border-radius: 4px; padding: 8px;
+            font-family: var(--font); font-size: 13px; resize: vertical;
+        }
+        .badge-waiting { background: #9c27b0; color: #fff; }
+        .result-badges { display: inline-flex; gap: 4px; margin-left: 8px; }
+        .result-badges .badge { font-size: 10px; padding: 1px 6px; cursor: pointer; }
+        .badge-pending { background: var(--orange); color: #000; }
+        .diff-toggle {
+            cursor: pointer; user-select: none; color: var(--accent); font-size: 12px;
+            padding: 6px 0; display: flex; align-items: center; gap: 4px;
+        }
+        .diff-toggle:hover { text-decoration: underline; }
+        .dod-toggle {
+            cursor: pointer; user-select: none; color: var(--accent); font-size: 12px;
+            display: inline;
+        }
+        .dod-toggle:hover { text-decoration: underline; }
+
+        /* Modal overlay for spec review */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 150;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 8px; padding: 24px; width: 90%; max-width: 800px;
+            max-height: 85vh; overflow-y: auto;
+        }
+        .modal h3 { margin-bottom: 12px; }
+        .modal pre {
+            background: #111; border: 1px solid var(--border); border-radius: 4px;
+            padding: 12px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;
+            max-height: 400px; overflow-y: auto; margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Login Overlay -->
+<div id="login-overlay" class="login-overlay">
+    <div class="login-box">
+        <h2>HTH Dashboard</h2>
+        <p>Autonomous Runtime Control Plane</p>
+        <div id="g_id_signin"></div>
+        <div id="login-error" class="error" style="display:none"></div>
+    </div>
+</div>
+
+<!-- Modal container (Spec / Draft Warning) -->
+<div id="modal-container"></div>
+
+<!-- App -->
+<div id="app" style="display:none">
+    <header>
+        <h1>HTH Dashboard</h1>
+        <div class="project-selector">
+            <select id="project-select" onchange="selectProject(this.value)">
+                <option value="">No projects</option>
+            </select>
+            <span id="project-sync-icon" title=""></span>
+            <div id="project-actions" style="display:flex;gap:4px"></div>
+        </div>
+        <div class="header-right">
+            <button class="btn-outline" onclick="gitPull()" title="Pull latest code from remote">Pull</button>
+            <span class="status" id="connection-status">disconnected</span>
+            <div class="user-info" id="user-info"></div>
+        </div>
+    </header>
+    <nav>
+        <button class="active" onclick="showView('queue')">Queue</button>
+        <button onclick="showView('live')">Live</button>
+        <button onclick="showView('review')">Review</button>
+        <button onclick="showView('results')">Results</button>
+        <button onclick="showView('history')">History</button>
+        <button onclick="showView('health')">Health</button>
+    </nav>
+    <main>
+        <!-- Queue View -->
+        <div id="view-queue" class="view active">
+            <h2 style="margin-bottom:16px">Queue</h2>
+            <div class="actions">
+                <button class="btn btn-small" onclick="loadSpecs()" style="background:var(--border);color:var(--text)">Refresh</button>
+                <button id="sync-check-btn" class="btn btn-small" onclick="syncSpecs()" style="background:var(--border);color:var(--text);display:none">Sync Check</button>
+            </div>
+            <div id="sync-results" style="display:none"></div>
+            <div id="specs-list"></div>
+        </div>
+
+        <!-- Live View -->
+        <div id="view-live" class="view">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h2>Live</h2>
+                <div style="display:flex;gap:8px">
+                    <button class="btn-outline" onclick="clearStaleTasks()">Clear Stale</button>
+                </div>
+            </div>
+            <div id="task-queue-list"></div>
+            <h3 style="margin:16px 0 8px">Event Log</h3>
+            <div id="log-area" class="log-area">
+                <div class="empty-state">No active run</div>
+            </div>
+        </div>
+
+        <!-- Review View -->
+        <div id="view-review" class="view">
+            <h2 style="margin-bottom:16px">Review</h2>
+            <div id="drafts-list"></div>
+        </div>
+
+        <!-- Results View -->
+        <div id="view-results" class="view">
+            <h2 style="margin-bottom:16px">Results</h2>
+            <div id="results-list"></div>
+        </div>
+
+        <!-- History View -->
+        <div id="view-history" class="view">
+            <h2 style="margin-bottom:16px">History</h2>
+            <div id="history-list"></div>
+        </div>
+
+        <!-- Health View -->
+        <div id="view-health" class="view">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h2>Health</h2>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span id="health-timestamp" style="font-size:12px;color:var(--text-dim)"></span>
+                    <button class="btn-outline" onclick="healthSync()">Sync</button>
+                    <button class="btn btn-small" onclick="loadHealth()" style="background:var(--border);color:var(--text)">Refresh</button>
+                </div>
+            </div>
+            <div id="health-summary" style="margin-bottom:16px"></div>
+            <div id="health-deployment" style="margin-bottom:16px"></div>
+            <div id="health-specs" style="margin-bottom:16px"></div>
+            <div id="health-drift" style="margin-bottom:16px"></div>
+        </div>
+    </main>
+</div>
+
+<script>
+// ---- Config ----
+let JWT = '';
+let API_BASE = window.location.origin + '/dashboard';
+let ws = null;
+
+// ---- Project state ----
+var selectedProjectId = null;
+var _projects = [];
+
+function projectParam() {
+    return selectedProjectId ? '?project=' + selectedProjectId : '';
+}
+
+function loadProjects() {
+    api('/projects').then(function(data) {
+        _projects = data.projects || [];
+        var sel = document.getElementById('project-select');
+        if (!_projects.length) {
+            sel.innerHTML = '<option value="">No projects</option>';
+            selectedProjectId = null;
+            updateProjectUI();
+            loadAllViews();
+            return;
+        }
+        sel.innerHTML = _projects.map(function(p) {
+            var icon = (p.sync && p.sync.icon) ? p.sync.icon + ' ' : '';
+            return '<option value="' + p.id + '">' + icon + escapeHtml(p.name) + '</option>';
+        }).join('');
+        // Restore from localStorage
+        var saved = localStorage.getItem('hth-project-id');
+        var savedId = saved ? parseInt(saved) : null;
+        var match = savedId && _projects.find(function(p) { return p.id === savedId; });
+        if (match) {
+            selectedProjectId = match.id;
+            sel.value = match.id;
+        } else {
+            selectedProjectId = _projects[0].id;
+            sel.value = _projects[0].id;
+            localStorage.setItem('hth-project-id', selectedProjectId);
+        }
+        updateProjectUI();
+        loadAllViews();
+    }).catch(function() { loadAllViews(); });
+}
+
+function selectProject(val) {
+    selectedProjectId = val ? parseInt(val) : null;
+    if (selectedProjectId) localStorage.setItem('hth-project-id', selectedProjectId);
+    else localStorage.removeItem('hth-project-id');
+    updateProjectUI();
+    loadAllViews();
+}
+
+function updateProjectUI() {
+    var p = selectedProjectId && _projects.find(function(p) { return p.id === selectedProjectId; });
+    var iconEl = document.getElementById('project-sync-icon');
+    var actEl = document.getElementById('project-actions');
+    if (!p) { iconEl.textContent = ''; iconEl.title = ''; actEl.innerHTML = ''; return; }
+    var icon = (p.sync && p.sync.icon) || '';
+    var label = (p.sync && p.sync.label) || '';
+    iconEl.textContent = icon;
+    iconEl.title = label;
+    var actions = '';
+    if (icon === '☁') {
+        actions = '<button class="btn-outline" style="font-size:11px;padding:3px 8px" onclick="cloneProject(' + p.id + ')">Clone</button>';
+    } else if (icon === '☁↕') {
+        actions = '<button class="btn-outline" style="font-size:11px;padding:3px 8px" onclick="pullProject(' + p.id + ')">Pull</button>';
+    }
+    actEl.innerHTML = actions;
+}
+
+function cloneProject(id) {
+    var el = document.getElementById('specs-list');
+    el.innerHTML = '<div class="empty-state"><p>Cloning repository...</p><p style="font-size:12px;color:var(--text-dim)">This may take a moment</p></div>';
+    toast('Cloning...', '');
+    api('/projects/' + id + '/clone', { method: 'POST', body: '{}' })
+        .then(function() {
+            toast('Cloned successfully', 'success');
+            // Reload projects so sync icon updates, then reload specs
+            api('/projects').then(function(data) {
+                _projects = data.projects || [];
+                var sel = document.getElementById('project-select');
+                sel.innerHTML = _projects.map(function(p) {
+                    var icon = (p.sync && p.sync.icon) ? p.sync.icon + ' ' : '';
+                    return '<option value="' + p.id + '">' + icon + escapeHtml(p.name) + '</option>';
+                }).join('');
+                sel.value = selectedProjectId;
+                updateProjectUI();
+                loadSpecs();
+            });
+        })
+        .catch(function(err) { toast('Clone failed: ' + err.message, 'error'); loadSpecs(); });
+}
+
+function pullProject(id) {
+    toast('Pulling...', '');
+    api('/projects/' + id + '/pull', { method: 'POST', body: '{}' })
+        .then(function() { toast('Pull complete', 'success'); loadProjects(); })
+        .catch(function(err) { toast('Pull failed: ' + err.message, 'error'); });
+}
+
+// ---- Google Sign-In ----
+function initGoogleSignIn() {
+    fetch(API_BASE + '/auth/config')
+        .then(r => r.json())
+        .then(config => {
+            if (!config.google_client_id) {
+                document.getElementById('login-error').textContent = 'Google Sign-In not configured on server';
+                document.getElementById('login-error').style.display = 'block';
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.onload = () => {
+                google.accounts.id.initialize({
+                    client_id: config.google_client_id,
+                    callback: handleGoogleLogin,
+                });
+                google.accounts.id.renderButton(
+                    document.getElementById('g_id_signin'),
+                    { theme: 'filled_black', size: 'large', shape: 'rectangular', text: 'signin_with', width: 280 }
+                );
+            };
+            document.head.appendChild(script);
+        })
+        .catch(err => {
+            document.getElementById('login-error').textContent = 'Failed to load auth config: ' + err.message;
+            document.getElementById('login-error').style.display = 'block';
+        });
+}
+
+function handleGoogleLogin(response) {
+    fetch(API_BASE + '/auth/google-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: response.credential }),
+    })
+    .then(r => {
+        if (r.status === 403) throw new Error('Not authorized');
+        if (!r.ok) throw new Error('Login failed');
+        return r.json();
+    })
+    .then(data => {
+        JWT = data.token;
+        localStorage.setItem('hth-jwt', JWT);
+        localStorage.setItem('hth-user', JSON.stringify({ email: data.email, name: data.name, picture: data.picture }));
+        enterApp(data);
+    })
+    .catch(err => {
+        document.getElementById('login-error').textContent = err.message;
+        document.getElementById('login-error').style.display = 'block';
+    });
+}
+
+function enterApp(user) {
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    const ui = document.getElementById('user-info');
+    ui.innerHTML = (user.picture ? '<img src="' + user.picture + '" alt="">' : '')
+        + '<span>' + escapeHtml(user.name || user.email) + '</span>'
+        + '<a onclick="logout()">logout</a>';
+    connectWebSocket();
+    loadProjects(); // loads projects then calls loadAllViews()
+}
+
+function logout() {
+    localStorage.removeItem('hth-jwt');
+    localStorage.removeItem('hth-user');
+    JWT = '';
+    if (ws) ws.close();
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-overlay').style.display = 'flex';
+}
+
+// Auto-login from stored JWT
+(function() {
+    var saved = localStorage.getItem('hth-jwt');
+    var user = localStorage.getItem('hth-user');
+    if (saved && user) {
+        JWT = saved;
+        fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + JWT } })
+            .then(r => { if (!r.ok) throw new Error('expired'); return r.json(); })
+            .then(() => enterApp(JSON.parse(user)))
+            .catch(() => { localStorage.removeItem('hth-jwt'); localStorage.removeItem('hth-user'); JWT = ''; initGoogleSignIn(); });
+    } else {
+        window.addEventListener('load', initGoogleSignIn);
+    }
+})();
+
+// ---- API ----
+function api(path, opts) {
+    opts = opts || {};
+    return fetch(API_BASE + path, {
+        method: opts.method || 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + JWT,
+            'Content-Type': 'application/json',
+        },
+        body: opts.body || undefined,
+    }).then(r => {
+        if (r.status === 401) { logout(); throw new Error('Session expired'); }
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        return r.json();
+    });
+}
+
+// ---- WebSocket ----
+function connectWebSocket() {
+    var wsUrl = API_BASE.replace('http', 'ws') + '/live?token=' + encodeURIComponent(JWT);
+    ws = new WebSocket(wsUrl);
+    ws.onopen = function() {
+        document.getElementById('connection-status').textContent = 'connected';
+        document.getElementById('connection-status').style.color = '#4caf50';
+    };
+    ws.onclose = function() {
+        document.getElementById('connection-status').textContent = 'disconnected';
+        document.getElementById('connection-status').style.color = '#888';
+        setTimeout(connectWebSocket, 5000);
+    };
+    ws.onmessage = function(event) {
+        try { handleEvent(JSON.parse(event.data)); } catch (e) {}
+    };
+}
+
+function handleEvent(event) {
+    // Filter events by selected project if the event carries a project_id
+    if (selectedProjectId && event.project_id && event.project_id !== selectedProjectId) return;
+    var logArea = document.getElementById('log-area');
+    if (logArea.querySelector('.empty-state')) logArea.innerHTML = '';
+    var time = new Date(event.timestamp).toLocaleTimeString();
+    var entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = '<span class="timestamp">' + time + '</span> <strong>' + event.type + '</strong> ' + JSON.stringify(event, null, 0).substring(0, 200);
+    logArea.appendChild(entry);
+    logArea.scrollTop = logArea.scrollHeight;
+    if (event.type === 'task_completed' || event.type === 'run_finished') { loadResults(); loadHistory(); loadReview(); loadVisibleTasks(); stopAgentPolling(); }
+    if (event.type === 'task_started' || event.type === 'session_started') { loadVisibleTasks(); startAgentPolling(); }
+    if (event.type === 'run_started') { startAgentPolling(); loadVisibleTasks(); }
+    if (event.type === 'adversarial_progress') { updateDebateStatus(event); }
+}
+
+// ---- Views ----
+function showView(name) {
+    document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+    document.querySelectorAll('nav button').forEach(function(b) {
+        b.classList.remove('active');
+        var btnName = b.textContent.trim().toLowerCase().replace(/\s*\(\d+\)$/, '');
+        if (btnName === name) b.classList.add('active');
+    });
+    document.getElementById('view-' + name).classList.add('active');
+    // Refresh data when switching to live
+    if (name === 'live') { loadVisibleTasks(); }
+    if (name === 'health') { loadHealth(); }
+}
+
+var _agentPollTimer = null;
+function startAgentPolling() {
+    if (_agentPollTimer) return;
+    _agentPollTimer = setInterval(function() { loadVisibleTasks(); }, 10000);
+}
+function stopAgentPolling() {
+    if (_agentPollTimer) { clearInterval(_agentPollTimer); _agentPollTimer = null; }
+}
+
+function loadAllViews() { loadResults(); loadSpecs(); loadHistory(); loadReview(); loadVisibleTasks(); }
+
+
+// ---- Git Pull (spec:025) ----
+function gitPull() {
+    toast('Pulling...', '');
+    api('/git/pull', { method: 'POST', body: '{}' })
+        .then(function(data) {
+            if (data.status === 'ok') {
+                toast('Pull complete: ' + (data.output || 'up to date'), 'success');
+                loadSpecs();
+            } else {
+                toast('Pull failed: ' + (data.output || 'unknown error'), 'error');
+            }
+        })
+        .catch(function(err) { toast('Pull error: ' + err.message, 'error'); });
+}
+
+// ---- Visible Tasks in Live tab (spec:025) ----
+function loadVisibleTasks() {
+    api('/tasks/visible' + projectParam()).then(function(data) {
+        var el = document.getElementById('task-queue-list');
+        if (!data.tasks.length) { el.innerHTML = '<div class="empty-state">No active tasks</div>'; return; }
+        // Detect stale: queued tasks older than 1 hour
+        var now = Date.now();
+        el.innerHTML = data.tasks.map(function(t) {
+            var created = t.created_at ? new Date(t.created_at).getTime() : now;
+            var isStale = t.status === 'queued' && (now - created > 3600000);
+            var badgeClass = t.status === 'running' ? 'badge-running'
+                : t.status === 'stopped' ? 'badge-stopped'
+                : isStale ? 'badge-stale'
+                : 'badge-queued';
+            var badgeText = isStale ? 'stale' : t.status;
+            var stage = t.pipeline_stage ? ' [' + t.pipeline_stage + ']' : '';
+            var actions = '';
+            if (t.status === 'queued') {
+                actions = '<button class="btn-danger-outline" onclick="cancelTask(' + t.id + ')">Cancel</button>';
+            } else if (t.status === 'running') {
+                actions = '<button class="btn-danger-outline" onclick="stopTask(' + t.id + ')">Stop</button>';
+            } else if (t.status === 'stopped') {
+                actions = '<button class="btn-outline" onclick="resumeTask(' + t.id + ')">Resume</button>';
+            }
+            var dwItem = t.done_when_item === '__draft_review__' ? 'Draft Review' : escapeHtml((t.done_when_item || '').substring(0, 80));
+            // Elapsed time from agent session (enriched by /tasks/visible)
+            var elapsed = '';
+            if (t.started_at && t.status === 'running') {
+                var ts = t.started_at;
+                if (!ts.endsWith('Z') && !ts.includes('+')) ts += 'Z';
+                var mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+                if (mins < 0) mins = 0;
+                elapsed = mins + 'min elapsed';
+                if (t.time_limit_min) elapsed += ' | Limit: ' + t.time_limit_min + 'min';
+            }
+            var title = t.spec_title
+                ? 'Spec ' + escapeHtml(t.spec_number) + ': ' + escapeHtml(t.spec_title)
+                : 'Spec ' + escapeHtml(t.spec_number);
+            return '<div class="card" style="padding:10px 16px">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center">'
+                + '<div>'
+                + '<span style="font-weight:600">' + title + '</span>'
+                + ' <span class="badge ' + badgeClass + '">' + badgeText + stage + '</span>'
+                + (t.stop_reason ? ' <span style="font-size:11px;color:var(--text-dim)">(' + escapeHtml(t.stop_reason) + ')</span>' : '')
+                + '<div style="font-size:12px;color:var(--text-dim)">' + dwItem + '</div>'
+                + (elapsed ? '<div style="font-size:12px;color:var(--text-dim)">' + elapsed + '</div>' : '')
+                + '</div>'
+                + '<div style="display:flex;gap:6px">' + actions + '</div>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }).catch(function() {});
+}
+
+function cancelTask(taskId) {
+    api('/tasks/' + taskId + '/cancel', { method: 'POST', body: '{}' })
+        .then(function() { toast('Task cancelled', 'success'); loadVisibleTasks(); })
+        .catch(function(err) { toast(err.message, 'error'); });
+}
+
+function stopTask(taskId) {
+    api('/tasks/' + taskId + '/stop', { method: 'POST', body: '{}' })
+        .then(function() { toast('Task stopped', 'success'); loadVisibleTasks(); })
+        .catch(function(err) { toast(err.message, 'error'); });
+}
+
+function resumeTask(taskId) {
+    // Resume: re-queue the task and start a scoped run
+    // For now, we re-enqueue the stopped task by posting to /run with its ID
+    toast('Resume not yet wired to re-queue. Use Build to re-run.', 'warn');
+}
+
+function clearStaleTasks() {
+    api('/tasks/clear-stale', { method: 'POST', body: '{}' })
+        .then(function(data) {
+            toast('Cleared ' + data.cancelled + ' stale tasks', 'success');
+            loadVisibleTasks();
+        })
+        .catch(function(err) { toast(err.message, 'error'); });
+}
+
+// ---- Debate status ----
+function updateDebateStatus(event) {
+    var el = document.getElementById('debate-status');
+    if (!el) {
+        var container = document.getElementById('task-queue-list');
+        if (!container) return;
+        el = document.createElement('div');
+        el.id = 'debate-status';
+        el.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(74,158,255,0.08);border-radius:4px;border-left:3px solid var(--accent);font-size:13px';
+        container.parentNode.insertBefore(el, container.nextSibling);
+    }
+    var phase = event.phase || '';
+    var html = '<strong>Adversarial Review</strong> ';
+    if (phase === 'challenger_start') { html += '-- Gemini reviewing code...'; }
+    else if (phase === 'debate_round') {
+        var roundLabel = 'Round ' + (event.round || '?') + '/' + (event.max_rounds || 3);
+        if (event.phase === 'claude_rebuttal') { html += '-- ' + roundLabel + ': Claude rebutting (' + (event.issues_in_play || '?') + ' issues)...'; }
+        else if (event.phase === 'gemini_counter') { html += '-- ' + roundLabel + ': Gemini counter-rebuttal (Claude accepted ' + (event.author_accepted || 0) + ', rebutted ' + (event.author_rebutted || 0) + ')...'; }
+    }
+    else if (phase === 'arbiter_start') { html += '-- GPT arbitrating ' + (event.unresolved_count || '?') + ' unresolved issues...'; }
+    else if (phase === 'arbiter_skip') { html += '-- All issues resolved in debate'; setTimeout(function() { if (el) el.remove(); }, 5000); }
+    else { html += '-- ' + phase; }
+    el.innerHTML = html;
+}
+
+// ---- Results helpers ----
+function renderAdversarialSummary(r) {
+    if (!r.adversarial_report) return '';
+    var rpt = r.adversarial_report;
+    var parts = [];
+    var issues = rpt.issues || [];
+    var claudeWins = 0, geminiWins = 0;
+    issues.forEach(function(i) {
+        if (i.final_side === 'author') claudeWins++;
+        else if (i.final_side === 'challenger') geminiWins++;
+    });
+    var debate = rpt.debate || {};
+    var arbiter = rpt.arbiter;
+    var scoreHtml = '<span style="font-weight:600;font-size:14px">Claude ' + claudeWins + ' \u2014 ' + geminiWins + ' Gemini</span>';
+    if (arbiter && (arbiter.challenger_wins || arbiter.author_wins)) {
+        var escalated = (arbiter.challenger_wins || 0) + (arbiter.author_wins || 0);
+        scoreHtml += '<span style="font-size:12px;color:var(--text-dim);margin-left:8px">' + escalated + ' to arbiter</span>';
+    }
+    parts.push('<div style="margin:8px 0;padding:8px 10px;background:rgba(74,158,255,0.08);border-radius:4px;border-left:3px solid var(--accent)">' + scoreHtml + '</div>');
+    // Debate rounds (collapsible)
+    var history = debate.history || [];
+    if (history.length > 0) {
+        var toggleId = 'debate-' + r.id;
+        var roundsHtml = history.map(function(h) {
+            var line = '<div style="margin:2px 0"><strong>Round ' + h.round + ':</strong> ';
+            if (h.round === 1) {
+                var total = (h.author_accepted || 0) + (h.author_rebutted || 0);
+                line += total + ' issues. Claude accepted ' + (h.author_accepted || 0) + ', rebutted ' + (h.author_rebutted || 0) + '. ';
+            } else {
+                var maintained = (h.author_accepted || 0) + (h.author_rebutted || 0);
+                line += maintained + ' remaining. Claude accepted ' + (h.author_accepted || 0) + ', rebutted ' + (h.author_rebutted || 0) + '. ';
+            }
+            line += 'Gemini conceded ' + (h.challenger_conceded || 0) + ', maintained ' + (h.challenger_maintained || 0) + '.</div>';
+            return line;
+        }).join('');
+        if (arbiter) {
+            roundsHtml += '<div style="margin:4px 0 0 0;border-top:1px solid rgba(255,255,255,0.06);padding-top:4px"><strong>Arbiter (GPT):</strong> ' + (arbiter.challenger_wins || 0) + ' for Gemini, ' + (arbiter.author_wins || 0) + ' for Claude</div>';
+        }
+        parts.push('<div style="margin:0 0 8px 0"><div class="diff-toggle" onclick="toggleEl(\''+toggleId+'\',this)"><span>&#9654;</span> Debate (' + history.length + ' rounds)</div><div id="' + toggleId + '" style="display:none;font-size:12px;color:var(--text-dim);padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:4px;margin-top:4px">' + roundsHtml + '</div></div>');
+    }
+    // Issues
+    if (issues.length > 0) {
+        var issueId = 'issues-' + r.id;
+        var issueHtml = issues.map(function(i) {
+            var icon = i.final_side === 'challenger' ? '\u274C' : '\u2705';
+            var res = i.resolution || '';
+            var resLabel = res === 'author_accepted' ? 'accepted' : res === 'challenger_conceded' ? 'Gemini conceded' : res === 'arbiter' ? 'arbiter' : res === 'rebuttal_uncontested' ? 'uncontested' : res;
+            return '<div style="margin:3px 0;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)">' + icon + ' <strong>[' + (i.severity || '?') + ']</strong> ' + escapeHtml((i.description || '').substring(0, 120)) + '<span style="float:right;font-size:11px;color:var(--text-dim)">' + resLabel + '</span></div>';
+        }).join('');
+        parts.push('<div style="margin:0 0 4px 0"><div class="diff-toggle" onclick="toggleEl(\''+issueId+'\',this)"><span>&#9654;</span> Issues (' + issues.length + ')</div><div id="' + issueId + '" style="display:none;font-size:12px;padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:4px;margin-top:4px">' + issueHtml + '</div></div>');
+    }
+    return parts.join('');
+}
+
+function toggleEl(id, trigger) {
+    var el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    if (trigger) trigger.querySelector('span').textContent = el.style.display === 'none' ? '\u25B6' : '\u25BC';
+}
+
+function parseDiffStats(diffText) {
+    if (!diffText) return { insertions: 0, deletions: 0, files: [] };
+    var ins = 0, del_ = 0, files = [];
+    var lines = diffText.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var sm = line.match(/(\d+)\s+insertion/); if (sm) ins = parseInt(sm[1]);
+        var dm = line.match(/(\d+)\s+deletion/); if (dm) del_ = parseInt(dm[1]);
+        var fm = line.match(/^\s*[MADR?]+\s+(\S+)/); if (fm) files.push(fm[1]);
+        var pm = line.match(/^\s+(\S+)\s+\|\s+\d+/); if (pm && files.indexOf(pm[1]) === -1) files.push(pm[1]);
+    }
+    return { insertions: ins, deletions: del_, files: files };
+}
+
+function renderCollapsibleDiff(r) {
+    if (!r.diff_summary) return '';
+    var stats = parseDiffStats(r.diff_summary);
+    var id = 'diff-' + r.id;
+    var headerText = 'View diff';
+    if (stats.insertions > 0 || stats.deletions > 0) headerText += ' (' + stats.insertions + '+, ' + stats.deletions + '-)';
+    var filesHtml = '';
+    if (stats.files.length > 0) {
+        filesHtml = '<div style="margin:4px 0 8px 0;font-size:11px;color:var(--text-dim)">';
+        stats.files.forEach(function(f) { filesHtml += '<div>' + escapeHtml(f) + '</div>'; });
+        filesHtml += '</div>';
+    }
+    return '<div style="margin:8px 0"><div class="diff-toggle" onclick="toggleEl(\''+id+'\',this)"><span>&#9654;</span> ' + headerText + '</div><div id="' + id + '" style="display:none">' + filesHtml + '<div class="diff-area">' + escapeHtml(r.diff_summary) + '</div></div></div>';
+}
+
+// ---- Results ----
+function loadResults() {
+    api('/results' + projectParam()).then(function(data) {
+        var el = document.getElementById('results-list');
+        data.results = data.results.filter(function(r) { return r.approved === null; });
+        var navBtns = document.querySelectorAll('nav button');
+        navBtns.forEach(function(b) { if (b.textContent.trim().toLowerCase().replace(/\s*\(\d+\)$/, '') === 'results') b.textContent = data.results.length ? 'Results (' + data.results.length + ')' : 'Results'; });
+        if (!data.results.length) { el.innerHTML = '<div class="empty-state">No results pending review</div>'; return; }
+        el.innerHTML = data.results.map(function(r) {
+            var title = r.spec_number ? 'Spec ' + escapeHtml(r.spec_number) + ': ' + escapeHtml(r.spec_title || '') : 'Task #' + r.task_id;
+            var subtitle = r.done_when_item ? (r.done_when_item === '__draft_review__' ? 'Draft Review' : escapeHtml(r.done_when_item)) : (r.branch_name || 'unknown');
+            return '<div class="card">'
+                + '<div class="card-header"><span class="card-title">' + title + '</span>'
+                + '<span class="badge ' + (r.adversarial_verdict === 'PASS' ? 'badge-pass' : r.adversarial_verdict === 'FAIL' ? 'badge-fail' : 'badge-queued') + '">' + (r.adversarial_verdict || 'PENDING') + '</span></div>'
+                + '<div style="color:var(--text-dim);font-size:12px;margin-bottom:4px">' + subtitle + '</div>'
+                + '<div>Tests: ' + r.test_passed + ' passed, ' + r.test_failed + ' failed | Commit: ' + (r.commit_sha || '').substring(0, 7) + '</div>'
+                + renderAdversarialSummary(r)
+                + renderSpecViewer(r)
+                + renderCollapsibleDiff(r)
+                + '<div style="margin-top:8px;display:flex;gap:8px">'
+                + (r.approved === null
+                    ? (r.has_pending_review
+                        ? '<button class="btn btn-small" onclick="showView(\'review\')">Review</button><button class="btn btn-small btn-reject" onclick="rejectWithReason(' + r.id + ')">Reject</button>'
+                        : '<button class="btn btn-small btn-approve" onclick="mergeAndDeploy(' + r.id + ')">Merge &amp; Deploy</button><button class="btn btn-small btn-reject" onclick="rejectWithReason(' + r.id + ')">Reject</button>')
+                    : r.approved ? '<span class="badge badge-pass">Approved</span>' : '<span class="badge badge-fail">Rejected</span>')
+                + '</div></div>';
+        }).join('');
+    }).catch(function() {});
+}
+
+function renderSpecViewer(r) {
+    if (!r.diff_summary) return '';
+    var id = 'spec-viewer-' + r.id;
+    var specFiles = [];
+    r.diff_summary.split('\n').forEach(function(line) {
+        var match = line.match(/^\s*(specs\/\S+\.md)/);
+        if (match) specFiles.push(match[1]);
+    });
+    if (!specFiles.length) return '';
+    var label = r.done_when_item === '__draft_review__' ? 'View spec' : 'View changed specs';
+    return '<div style="margin:8px 0"><div class="diff-toggle" onclick="loadSpecContent(' + r.id + ',\'' + escapeHtml(specFiles[0]) + '\',\'' + id + '\')"><span>&#9654;</span> ' + label + '</div><pre id="' + id + '" style="display:none;margin-top:4px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;font-size:12px;white-space:pre-wrap;max-height:600px;overflow-y:auto"></pre></div>';
+}
+
+function loadSpecContent(resultId, filePath, elementId) {
+    var el = document.getElementById(elementId);
+    if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+    if (el.dataset.loaded) { el.style.display = 'block'; return; }
+    el.textContent = 'Loading...'; el.style.display = 'block';
+    api('/results/' + resultId + '/files?path=' + encodeURIComponent(filePath))
+        .then(function(data) { el.textContent = data.content; el.dataset.loaded = 'true'; })
+        .catch(function(err) { el.textContent = 'Error: ' + err.message; });
+}
+
+function rejectWithReason(id) {
+    var reason = prompt('Why are you rejecting this? (required)');
+    if (reason === null) return;
+    if (!reason.trim()) { toast('Rejection reason is required', 'warn'); return; }
+    api('/results/' + id + '/approve', { method: 'POST', body: JSON.stringify({ approved: false, reject_reason: reason.trim() }) })
+        .then(function() { toast('Rejected with feedback', 'success'); loadResults(); })
+        .catch(function(err) { toast(err.message, 'error'); });
+}
+
+function approveResult(id, approved) {
+    api('/results/' + id + '/approve', { method: 'POST', body: JSON.stringify({ approved: approved }) })
+        .then(function() { loadResults(); }).catch(function(err) { toast(err.message, 'error'); });
+}
+
+function mergeAndDeploy(id) {
+    if (!confirm('Merge this branch into main and redeploy the dashboard?')) return;
+    var btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Merging...';
+    api('/results/' + id + '/approve', { method: 'POST', body: JSON.stringify({ approved: true }) })
+        .then(function(data) {
+            if (data.status === 'error') {
+                toast('Merge failed: ' + data.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Merge & Deploy';
+                return;
+            }
+            if (data.deploy_started) {
+                toast('Merged and deploying — dashboard will restart in ~60s', 'success');
+                btn.textContent = 'Deploying...';
+            } else {
+                toast('Merged to main. Deploy manually: docker compose build && up -d', 'success');
+            }
+            loadResults();
+        })
+        .catch(function(err) {
+            toast(err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Merge & Deploy';
+        });
+}
+
+// ==== QUEUE VIEW — Two-Button UX (spec:025) ====
+
+function renderResultBadges(results) {
+    if (!results) return '';
+    var total = results.total || 0;
+    if (total === 0) return '';
+    var approved = results.approved || 0;
+    var rejected = results.rejected || 0;
+    var passed = results.passed || 0;
+    var failed = results.failed || 0;
+    var pending = results.pending || 0;
+    var html = '<span class="result-badges" onclick="showView(\'results\')">';
+    // Lifecycle: merged > approved > adversarial verdict
+    if (approved > 0) html += '<span class="badge badge-pass">Merged</span>';
+    else if (passed > 0) html += '<span class="badge badge-pass">PASS</span>';
+    if (rejected > 0) html += '<span class="badge badge-fail">Rejected</span>';
+    else if (failed > 0 && approved === 0) html += '<span class="badge badge-fail">FAIL</span>';
+    if (total > 0) html += '<span style="font-size:10px;color:var(--text-dim);margin-left:2px">(' + total + ')</span>';
+    if (pending > 0) html += '<span class="badge badge-pending">review pending</span>';
+    html += '</span>';
+    return html;
+}
+
+function _isCloudOnly() {
+    var p = selectedProjectId && _projects.find(function(p) { return p.id === selectedProjectId; });
+    return p && p.sync && p.sync.icon === '☁';
+}
+
+function loadSpecs() {
+    var syncBtn = document.getElementById('sync-check-btn');
+    var syncResults = document.getElementById('sync-results');
+    syncBtn.style.display = 'none';
+    syncResults.style.display = 'none';
+
+    // Cloud-only project — no local clone, can't scan specs
+    if (_isCloudOnly()) {
+        var el = document.getElementById('specs-list');
+        var p = _projects.find(function(p) { return p.id === selectedProjectId; });
+        el.innerHTML = '<div class="empty-state">' +
+            '<p>Not synced locally</p>' +
+            '<p style="font-size:12px;color:var(--text-dim);margin:8px 0">This project is on GitHub but hasn\'t been cloned to this machine yet.</p>' +
+            '<button class="btn-primary" onclick="cloneProject(' + p.id + ')">Clone &amp; Sync</button>' +
+            '</div>';
+        return;
+    }
+    api('/specs' + projectParam()).then(function(data) {
+        var el = document.getElementById('specs-list');
+        if (!data.specs.length) {
+            el.innerHTML = '<div class="empty-state">' +
+                '<p>No specs found</p>' +
+                '<p style="font-size:12px;color:var(--text-dim);margin:8px 0">This project has code but no specs yet. Infer specs from the codebase?</p>' +
+                '<button class="btn-primary" onclick="inferSpecs()">Infer from Code</button>' +
+                '</div>';
+            return;
+        }
+        // Show Sync Check button when specs exist
+        syncBtn.style.display = '';
+        el.innerHTML = data.specs.map(function(s) {
+            // Spec lifecycle badge
+            var specStatus = s.spec_status || s.status;
+            var specBadgeClass = specStatus === 'approved' ? 'badge-pass'
+                : specStatus === 'reviewed' ? 'badge-active'
+                : specStatus === 'active' ? 'badge-active'
+                : specStatus === 'done' ? 'badge-done'
+                : 'badge-draft';
+
+            // Code lifecycle badge
+            var codeStatus = s.code_status;
+            var codeBadge = '';
+            if (codeStatus === 'merged') codeBadge = '<span class="badge badge-pass">merged</span>';
+            else if (codeStatus === 'deployed') codeBadge = '<span class="badge badge-done">deployed</span>';
+            else if (codeStatus === 'imported') codeBadge = '<span class="badge badge-active">synced</span>';
+            else if (codeStatus === 'building') codeBadge = '<span class="badge badge-running">building</span>';
+            else if (codeStatus === 'review_pending') codeBadge = '<span class="badge badge-pending">review pending</span>';
+            else if (codeStatus === 'rejected') codeBadge = '<span class="badge badge-fail">rejected</span>';
+            else codeBadge = '<span style="color:var(--text-dim);font-size:12px">\u2014</span>';
+
+            // Code actions
+            var codeActions = '';
+            if (s.live) {
+                codeActions = '<span class="badge badge-live">building</span>';
+            } else if (codeStatus === 'merged') {
+                codeActions = '<button class="btn btn-small" style="font-size:11px" onclick="deploySpec(\'' + escapeHtml(s.number) + '\')">Deploy</button>'
+                    + ' <button class="btn-outline" style="font-size:11px" onclick="toggleBuild(\'' + escapeHtml(s.number) + '\', ' + JSON.stringify(s.status).replace(/"/g, '&quot;') + ')">Rebuild</button>';
+            } else if (codeStatus) {
+                codeActions = '<button class="btn btn-small" style="font-size:11px" onclick="toggleBuild(\'' + escapeHtml(s.number) + '\', ' + JSON.stringify(s.status).replace(/"/g, '&quot;') + ')">Rebuild</button>';
+            } else if (s.status !== 'done') {
+                codeActions = '<button class="btn btn-small" style="font-size:11px" onclick="toggleBuild(\'' + escapeHtml(s.number) + '\', ' + JSON.stringify(s.status).replace(/"/g, '&quot;') + ')">Build</button>';
+            }
+
+            var doneProgress = s.checked_items + '/' + s.total_items + ' done';
+            var indent = 'margin-left:48px;font-size:12px;';
+
+            return '<div class="spec-item" id="spec-card-' + escapeHtml(s.number) + '">'
+                // Line 1: Header
+                + '<div style="display:flex;align-items:center;gap:8px">'
+                + '<span class="spec-number">' + escapeHtml(s.number) + '</span>'
+                + '<span class="spec-title" style="font-weight:600">' + escapeHtml(s.title) + '</span>'
+                + '</div>'
+                // Line 2: Spec status + actions
+                + '<div style="' + indent + 'display:flex;justify-content:space-between;align-items:center;margin-top:4px">'
+                + '<div><span style="color:var(--text-dim);margin-right:8px">Spec</span>'
+                + '<span class="badge ' + specBadgeClass + '">' + escapeHtml(specStatus) + '</span></div>'
+                + '<button class="btn-outline" style="font-size:11px" onclick="openReviewSpec(\'' + escapeHtml(s.number) + '\')">Review</button>'
+                + '</div>'
+                // Line 3: Code status + actions
+                + '<div style="' + indent + 'display:flex;justify-content:space-between;align-items:center;margin-top:2px">'
+                + '<div><span style="color:var(--text-dim);margin-right:8px">Code</span>' + codeBadge + '</div>'
+                + '<div style="display:flex;gap:4px">' + codeActions + '</div>'
+                + '</div>'
+                // Line 4-5: Description + progress
+                + (s.goal ? '<div style="' + indent + 'color:var(--text-dim);margin-top:4px">' + escapeHtml(s.goal) + '</div>' : '')
+                + '<div style="' + indent + 'color:var(--text-dim);margin-top:2px">' + doneProgress + '</div>'
+                + '<div id="build-panel-' + escapeHtml(s.number) + '" style="display:none"></div>'
+                + '</div>';
+        }).join('');
+    }).catch(function() {});
+}
+
+function deploySpec(specNumber) {
+    toast('Deploy not yet implemented — use macstudio agent', 'warn');
+}
+
+// Store specs data for build panel rendering
+var _specsCache = {};
+
+function toggleBuild(specNumber, specStatus) {
+    var panel = document.getElementById('build-panel-' + specNumber);
+    if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+
+    // Draft spec warning
+    if (specStatus === 'draft') {
+        showDraftWarning(specNumber);
+        return;
+    }
+
+    expandBuildPanel(specNumber);
+}
+
+function showDraftWarning(specNumber) {
+    var modal = document.getElementById('modal-container');
+    modal.innerHTML = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()">'
+        + '<div class="modal">'
+        + '<h3>Spec is draft -- review before building?</h3>'
+        + '<p style="color:var(--text-dim);margin-bottom:16px">This spec has Status: draft. It is recommended to review and activate it before building.</p>'
+        + '<div style="display:flex;gap:8px">'
+        + '<button class="btn-outline" onclick="closeModal();openReviewSpec(\'' + specNumber + '\')">Spec First</button>'
+        + '<button class="btn btn-small" onclick="closeModal();expandBuildPanel(\'' + specNumber + '\')">Build Anyway</button>'
+        + '<button class="btn btn-small" style="background:var(--border);color:var(--text)" onclick="closeModal()">Cancel</button>'
+        + '</div>'
+        + '</div></div>';
+}
+
+function closeModal() {
+    document.getElementById('modal-container').innerHTML = '';
+}
+
+function expandBuildPanel(specNumber) {
+    var panel = document.getElementById('build-panel-' + specNumber);
+    // Fetch spec data to show Done When as progress indicators
+    api('/specs' + projectParam()).then(function(data) {
+        var spec = data.specs.find(function(s) { return s.number === specNumber; });
+        if (!spec) { toast('Spec not found', 'error'); return; }
+        _specsCache[specNumber] = spec;
+
+        var items = spec.done_when || [];
+        var done = items.filter(function(i) { return i.checked; }).length;
+        var total = items.length;
+        var html = '<div class="build-panel">'
+            + '<div style="margin-bottom:8px;font-weight:600;font-size:13px">Done When (' + done + '/' + total + ' complete):</div>';
+
+        items.forEach(function(item) {
+            var icon = item.checked ? '&#x2705;' : '&#x2B1C;';
+            var style = item.checked ? 'color:var(--text-dim);text-decoration:line-through' : '';
+            html += '<div style="font-size:12px;margin:2px 0;' + style + '">'
+                + icon + ' ' + escapeHtml(item.text) + '</div>';
+        });
+
+        html += '<div style="margin-top:12px">'
+            + '<textarea id="build-instructions-' + specNumber + '" class="draft-textarea" style="min-height:50px" placeholder="Additional instructions (optional). Claude gets the full spec and uses maestro to plan."></textarea>'
+            + '</div>'
+            + '<div style="margin-top:8px;display:flex;gap:8px">'
+            + '<button class="btn btn-small" onclick="runBuildSpec(\'' + escapeHtml(specNumber) + '\')">Build Spec</button>'
+            + '<button class="btn btn-small" style="background:var(--border);color:var(--text)" onclick="document.getElementById(\'build-panel-' + escapeHtml(specNumber) + '\').style.display=\'none\'">Cancel</button>'
+            + '</div>'
+            + '</div>';
+
+        panel.innerHTML = html;
+        panel.style.display = 'block';
+    });
+}
+
+function runBuildSpec(specNumber) {
+    var spec = _specsCache[specNumber];
+    if (!spec) { toast('Spec data not loaded', 'error'); return; }
+
+    var instrEl = document.getElementById('build-instructions-' + specNumber);
+    var instructions = instrEl ? instrEl.value.trim() : '';
+
+    // One task per spec — Claude gets the full spec, uses maestro to plan
+    var tasks = [{
+        spec_number: specNumber,
+        spec_title: spec.title,
+        done_when_item: '__full_spec__',
+    }];
+
+    var queueBody = { tasks: tasks, user_instructions: instructions || undefined };
+    if (selectedProjectId) queueBody.project_id = selectedProjectId;
+    api('/queue', { method: 'POST', body: JSON.stringify(queueBody) })
+        .then(function(queueResult) {
+            if (queueResult.count === 0 && queueResult.skipped > 0) {
+                toast('Spec already queued or running', 'warn');
+                return;
+            }
+            var taskIds = queueResult.enqueued.map(function(e) { return e.id; });
+            if (!taskIds.length) {
+                toast('Already running', 'warn');
+                return;
+            }
+            var runBody = { task_ids: taskIds };
+            if (selectedProjectId) runBody.project_id = selectedProjectId;
+            return api('/run', { method: 'POST', body: JSON.stringify(runBody) })
+                .then(function() {
+                    toast('Building spec ' + specNumber + ' — Claude will use maestro to plan', 'success');
+                    document.getElementById('build-panel-' + specNumber).style.display = 'none';
+                    showView('live');
+                    loadSpecs();
+                });
+        })
+        .catch(function(err) { toast('Error: ' + err.message, 'error'); });
+}
+
+// ---- Spec modal (spec:025) ----
+// Flow: GPT mentors → Claude edits → human approves/modifies/rejects
+var _currentReviewId = null;
+var _currentReviewSpec = null;
+
+function openReviewSpec(specNumber) {
+    _currentReviewSpec = specNumber;
+    api('/specs/' + specNumber + '/content' + projectParam()).then(function(data) {
+        var title = data.filename.replace('.md','').split('-').slice(1).join(' ');
+        var modal = document.getElementById('modal-container');
+        modal.innerHTML = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()">'
+            + '<div class="modal" style="max-width:800px;max-height:85vh;overflow-y:auto">'
+            + '<h3>Spec ' + escapeHtml(specNumber) + ': ' + escapeHtml(title) + '</h3>'
+            + '<pre style="max-height:300px;overflow-y:auto;font-size:12px;background:var(--bg);padding:12px;border-radius:4px;border:1px solid var(--border)">'
+            + escapeHtml(data.content) + '</pre>'
+            + '<div style="margin-top:12px">'
+            + '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px">Instructions:</label>'
+            + '<textarea id="review-suggest-text" class="draft-textarea" placeholder="Optional — leave blank for GPT review + Claude edits. With instructions, Claude edits first, then GPT reviews."></textarea>'
+            + '</div>'
+            + '<div id="review-actions" style="margin-top:12px;display:flex;gap:8px">'
+            + '<button class="btn btn-small" onclick="submitSpecReview(\'' + escapeHtml(specNumber) + '\')">Send for Improvement</button>'
+            + '<button class="btn btn-small" style="background:var(--border);color:var(--text)" onclick="closeModal()">Close</button>'
+            + '</div>'
+            + '<div id="review-result" style="display:none;margin-top:16px"></div>'
+            + '</div></div>';
+    }).catch(function(err) { toast('Error loading spec: ' + err.message, 'error'); });
+}
+
+function submitSpecReview(specNumber) {
+    var text = (document.getElementById('review-suggest-text') || {}).value || '';
+    var actionsEl = document.getElementById('review-actions');
+    actionsEl.innerHTML = '<span style="color:var(--text-dim)">GPT reviewing → Claude editing... (this takes ~30s)</span>';
+    api('/specs/' + specNumber + '/review' + projectParam(), {
+        method: 'POST',
+        body: JSON.stringify({ modifications: text.trim() })
+    })
+    .then(function(result) { showReviewResult(specNumber, result); })
+    .catch(function(err) {
+        actionsEl.innerHTML = '<span style="color:var(--error)">Error: ' + escapeHtml(err.message) + '</span>';
+    });
+}
+
+function showReviewResult(specNumber, result) {
+    _currentReviewId = result.review_id;
+    var el = document.getElementById('review-result');
+    el.style.display = 'block';
+    el.innerHTML = ''
+        + '<h4 style="margin:0 0 8px">GPT Mentor Feedback</h4>'
+        + '<pre style="max-height:200px;overflow-y:auto;font-size:12px;background:rgba(74,158,255,0.06);padding:12px;border-radius:4px;border:1px solid var(--border);white-space:pre-wrap">'
+        + escapeHtml(result.gpt_feedback) + '</pre>'
+        + '<h4 style="margin:16px 0 8px">Claude\'s Edits (v' + (result.version || 1) + ')</h4>'
+        + '<pre style="max-height:300px;overflow-y:auto;font-size:12px;background:var(--bg);padding:12px;border-radius:4px;border:1px solid var(--border);white-space:pre-wrap">'
+        + escapeHtml(result.edited) + '</pre>'
+        + '<div style="margin-top:8px;font-size:12px;color:var(--text-dim)">Diff summary: ' + escapeHtml(result.diff.substring(0, 500)) + '</div>';
+
+    var actionsEl = document.getElementById('review-actions');
+    actionsEl.innerHTML = ''
+        + '<button class="btn btn-small" style="background:var(--success);color:white" onclick="approveReview(\'' + escapeHtml(specNumber) + '\')">Approve</button>'
+        + '<button class="btn btn-small" onclick="showModifyForm()">Modify</button>'
+        + '<button class="btn btn-small" style="background:var(--border);color:var(--text)" onclick="closeModal()">Reject</button>';
+}
+
+function showModifyForm() {
+    var actionsEl = document.getElementById('review-actions');
+    actionsEl.innerHTML = ''
+        + '<div style="width:100%">'
+        + '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px">Your feedback:</label>'
+        + '<textarea id="review-modify-text" class="draft-textarea" placeholder="What should Claude change?"></textarea>'
+        + '<div style="margin-top:8px;display:flex;gap:8px">'
+        + '<button class="btn btn-small" onclick="submitModify(\'' + escapeHtml(_currentReviewSpec) + '\')">Submit Feedback</button>'
+        + '<button class="btn btn-small" style="background:var(--border);color:var(--text)" onclick="closeModal()">Cancel</button>'
+        + '</div></div>';
+}
+
+function submitModify(specNumber) {
+    var comments = (document.getElementById('review-modify-text') || {}).value || '';
+    if (!comments.trim()) { toast('Please describe what to change', 'warn'); return; }
+    var actionsEl = document.getElementById('review-actions');
+    actionsEl.innerHTML = '<span style="color:var(--text-dim)">Claude re-editing → GPT re-reviewing...</span>';
+    api('/specs/' + specNumber + '/review/' + _currentReviewId + '/modify' + projectParam(), {
+        method: 'POST',
+        body: JSON.stringify({ comments: comments.trim() })
+    })
+    .then(function(result) { showReviewResult(specNumber, result); })
+    .catch(function(err) {
+        actionsEl.innerHTML = '<span style="color:var(--error)">Error: ' + escapeHtml(err.message) + '</span>';
+    });
+}
+
+function approveReview(specNumber) {
+    api('/specs/' + specNumber + '/review/' + _currentReviewId + '/approve' + projectParam(), {
+        method: 'POST', body: '{}'
+    })
+    .then(function() {
+        toast('Spec ' + specNumber + ' updated and committed', 'success');
+        closeModal();
+        loadSpecs();
+    })
+    .catch(function(err) { toast('Error: ' + err.message, 'error'); });
+}
+
+// ---- Queue: activate spec (unchanged) ----
+function activateSpec(specNumber) {
+    if (!confirm('Start development on spec ' + specNumber + '? This changes status from draft to active.')) return;
+    api('/specs/' + specNumber + '/activate' + projectParam(), { method: 'POST', body: '{}' })
+        .then(function() { toast('Spec ' + specNumber + ' is now active', 'success'); loadSpecs(); })
+        .catch(function(err) { toast('Error: ' + err.message, 'error'); });
+}
+
+// ---- Spec Inference ----
+var _inferredSpecs = null;
+
+function inferSpecs() {
+    if (!selectedProjectId) { toast('No project selected', 'error'); return; }
+    var el = document.getElementById('specs-list');
+    el.innerHTML = '<div class="empty-state"><p>Scanning codebase and inferring specs...</p><p style="font-size:12px;color:var(--text-dim)">This may take 30-60 seconds</p></div>';
+    api('/projects/' + selectedProjectId + '/infer-specs', { method: 'POST', body: '{}' })
+        .then(function(data) {
+            if (data.status === 'error') {
+                toast('Inference failed: ' + (data.message || 'unknown'), 'error');
+                el.innerHTML = '<div class="empty-state"><p>Inference failed</p><pre style="font-size:11px;text-align:left;max-height:300px;overflow:auto">' + escapeHtml(data.raw || '') + '</pre></div>';
+                return;
+            }
+            _inferredSpecs = data.specs;
+            showInferredSpecs(data.specs);
+        })
+        .catch(function(err) {
+            toast('Error: ' + err.message, 'error');
+            el.innerHTML = '<div class="empty-state">Inference failed — check API keys</div>';
+        });
+}
+
+function showInferredSpecs(specs) {
+    var el = document.getElementById('specs-list');
+    var html = '<div style="margin-bottom:12px">' +
+        '<h3 style="margin:0 0 4px">Proposed Specs (' + specs.length + ')</h3>' +
+        '<p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">Review the inferred specs below. Edit or remove before saving.</p>' +
+        '<button class="btn-primary" onclick="saveInferredSpecs()">Save All to Project</button> ' +
+        '<button class="btn-outline" onclick="inferSpecs()">Re-infer</button> ' +
+        '<button class="btn-outline" onclick="loadSpecs()">Cancel</button>' +
+        '</div>';
+    specs.forEach(function(s, i) {
+        html += '<div class="card" style="margin-bottom:8px">' +
+            '<div class="card-header">' +
+            '<span class="card-title">' + escapeHtml(s.number + ': ' + s.title) + '</span>' +
+            '<span class="badge badge-done" style="font-size:10px">' + escapeHtml(s.filename) + '</span>' +
+            '</div>' +
+            '<details><summary style="cursor:pointer;font-size:12px;color:var(--accent);padding:8px">Show spec content</summary>' +
+            '<pre style="font-size:11px;white-space:pre-wrap;padding:8px;background:var(--bg);border-radius:4px;max-height:400px;overflow:auto">' +
+            escapeHtml(s.content) + '</pre></details></div>';
+    });
+    el.innerHTML = html;
+}
+
+function saveInferredSpecs() {
+    if (!_inferredSpecs || !selectedProjectId) return;
+    toast('Saving specs...', '');
+    api('/projects/' + selectedProjectId + '/save-specs', {
+        method: 'POST',
+        body: JSON.stringify({ specs: _inferredSpecs })
+    })
+    .then(function(data) {
+        toast('Saved ' + data.written.length + ' specs to project', 'success');
+        _inferredSpecs = null;
+        loadSpecs();
+    })
+    .catch(function(err) { toast('Error saving: ' + err.message, 'error'); });
+}
+
+// ---- Spec-Reality Sync ----
+function syncSpecs() {
+    if (!selectedProjectId) { toast('No project selected', 'error'); return; }
+    var el = document.getElementById('sync-results');
+    el.style.display = 'block';
+    el.innerHTML = '<div class="empty-state"><p>Comparing specs against codebase...</p><p style="font-size:12px;color:var(--text-dim)">This may take 30-60 seconds</p></div>';
+    api('/projects/' + selectedProjectId + '/sync-specs', { method: 'POST', body: '{}' })
+        .then(function(data) {
+            if (data.status === 'error') {
+                el.innerHTML = '<div class="card" style="border-color:var(--red)"><p>Sync failed: ' + escapeHtml(data.message || '') + '</p></div>';
+                return;
+            }
+            renderSyncResults(data.sync);
+        })
+        .catch(function(err) {
+            el.innerHTML = '<div class="card" style="border-color:var(--red)"><p>Error: ' + escapeHtml(err.message) + '</p></div>';
+        });
+}
+
+function renderSyncResults(sync) {
+    var el = document.getElementById('sync-results');
+    var score = sync.alignment_score || 0;
+    var scoreColor = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow, orange)' : 'var(--red)';
+    var html = '<div class="card" style="margin-bottom:12px">' +
+        '<div class="card-header"><span class="card-title">Spec-Reality Sync</span>' +
+        '<span style="font-size:18px;font-weight:bold;color:' + scoreColor + '">' + score + '%</span>' +
+        '<button class="btn-outline" style="font-size:11px;padding:2px 8px;margin-left:8px" onclick="document.getElementById(\'sync-results\').style.display=\'none\'">Dismiss</button></div>' +
+        '<p style="font-size:12px;margin:8px 0">' + escapeHtml(sync.summary || '') + '</p>';
+
+    if (sync.uncovered_features && sync.uncovered_features.length) {
+        html += '<h4 style="font-size:12px;color:var(--accent);margin:12px 0 4px">Uncovered Features (in code, no spec)</h4><ul style="font-size:12px;margin:0;padding-left:16px">';
+        sync.uncovered_features.forEach(function(f) {
+            html += '<li><strong>' + escapeHtml(f.feature) + '</strong> — ' + escapeHtml(f.evidence) +
+                (f.suggested_spec ? ' <span style="color:var(--text-dim)">→ ' + escapeHtml(f.suggested_spec) + '</span>' : '') + '</li>';
+        });
+        html += '</ul>';
+    }
+
+    if (sync.stale_specs && sync.stale_specs.length) {
+        html += '<h4 style="font-size:12px;color:var(--red);margin:12px 0 4px">Stale Specs (no matching code)</h4><ul style="font-size:12px;margin:0;padding-left:16px">';
+        sync.stale_specs.forEach(function(s) {
+            html += '<li><strong>' + escapeHtml(s.spec) + '</strong> — ' + escapeHtml(s.issue) + '</li>';
+        });
+        html += '</ul>';
+    }
+
+    if (sync.mismatches && sync.mismatches.length) {
+        html += '<h4 style="font-size:12px;color:var(--yellow, orange);margin:12px 0 4px">Mismatches</h4><ul style="font-size:12px;margin:0;padding-left:16px">';
+        sync.mismatches.forEach(function(m) {
+            html += '<li><strong>' + escapeHtml(m.spec) + '</strong>: spec says "' + escapeHtml(m.claim) + '" but code shows "' + escapeHtml(m.reality) + '"</li>';
+        });
+        html += '</ul>';
+    }
+
+    if (sync.suggestions && sync.suggestions.length) {
+        html += '<h4 style="font-size:12px;margin:12px 0 4px">Suggestions</h4><ul style="font-size:12px;margin:0;padding-left:16px">';
+        sync.suggestions.forEach(function(s) {
+            html += '<li>' + escapeHtml(s) + '</li>';
+        });
+        html += '</ul>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// ---- Review ----
+function loadReview() {
+    api('/drafts').then(function(data) {
+        var el = document.getElementById('drafts-list');
+        var activeDrafts = data.drafts.filter(function(d) { return d.status === 'pending_answers'; });
+        var navBtns = document.querySelectorAll('nav button');
+        navBtns.forEach(function(b) { if (b.textContent.trim().toLowerCase().replace(/\s*\(\d+\)$/, '') === 'review') b.textContent = activeDrafts.length ? 'Review (' + activeDrafts.length + ')' : 'Review'; });
+        if (!activeDrafts.length) { el.innerHTML = '<div class="empty-state">No reviews pending</div>'; return; }
+        el.innerHTML = activeDrafts.map(function(d) {
+            var statusBadge = d.status === 'pending_answers' ? 'badge-waiting' : d.status === 'answered' ? 'badge-pass' : d.status === 'resumed' ? 'badge-running' : 'badge-queued';
+            var questionsHtml = '';
+            if (d.questions && d.questions.length) {
+                questionsHtml = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Draft &rarr; Q&amp;A rounds &rarr; Approve as Final &rarr; Ready for build</div>';
+                questionsHtml += '<div class="draft-questions">';
+                d.questions.forEach(function(q, idx) {
+                    var isStructured = typeof q === 'object' && q.options && q.options.length;
+                    questionsHtml += '<div class="draft-question-block">';
+                    if (isStructured) {
+                        questionsHtml += '<h4>Q' + (idx+1) + '/' + d.questions.length + ': ' + escapeHtml(q.title || '') + '</h4>';
+                        questionsHtml += '<p>' + escapeHtml(q.question || '') + '</p>';
+                        q.options.forEach(function(opt) {
+                            var rec = opt.recommended ? ' recommended' : '';
+                            questionsHtml += '<label class="draft-option' + rec + '"><input type="radio" name="draft-' + d.id + '-q' + idx + '" value="' + escapeHtml(opt.label) + ': ' + escapeHtml(opt.text) + '"' + (opt.recommended ? ' checked' : '') + '><span>' + escapeHtml(opt.label) + ') ' + escapeHtml(opt.text) + (opt.recommended ? ' [recommended]' : '') + '</span></label>';
+                        });
+                    } else {
+                        var qText = typeof q === 'string' ? q : (q.question || q.title || JSON.stringify(q));
+                        questionsHtml += '<p><strong>Q' + (idx+1) + ':</strong> ' + escapeHtml(qText) + '</p>';
+                        questionsHtml += '<textarea class="draft-textarea" style="height:60px" id="draft-' + d.id + '-free-' + idx + '" placeholder="Your answer..."></textarea>';
+                    }
+                    questionsHtml += '</div>';
+                });
+                questionsHtml += '</div>';
+            }
+            var answerForm = d.status === 'pending_answers'
+                ? '<div style="margin-top:12px;display:flex;gap:8px"><button class="btn btn-small" onclick="submitDraftAnswer(' + d.id + ',' + d.questions.length + ')">Submit Answers</button></div>'
+                : '';
+            return '<div class="card"><div class="card-header"><span class="card-title">Spec ' + escapeHtml(d.spec_number) + ': ' + escapeHtml(d.spec_title) + ' (v0.' + d.version + ')</span><span class="badge ' + statusBadge + '">' + escapeHtml(d.status) + '</span></div>' + questionsHtml + answerForm + '</div>';
+        }).join('');
+    }).catch(function() {});
+}
+
+function submitDraftAnswer(draftId, questionCount) {
+    var answers = [];
+    for (var i = 0; i < questionCount; i++) {
+        var selected = document.querySelector('input[name="draft-' + draftId + '-q' + i + '"]:checked');
+        if (selected) { answers.push(selected.value); continue; }
+        var textarea = document.getElementById('draft-' + draftId + '-free-' + i);
+        if (textarea && textarea.value.trim()) { answers.push(textarea.value.trim()); continue; }
+        toast('Please answer question ' + (i+1), 'warn');
+        return;
+    }
+    api('/drafts/' + draftId + '/answer', { method: 'POST', body: JSON.stringify({ answers: answers }) })
+        .then(function(data) { toast(data.message || 'Answers submitted', 'success'); loadReview(); })
+        .catch(function(err) { toast('Error: ' + err.message, 'error'); });
+}
+
+// ---- History ----
+function loadHistory() {
+    api('/history/tasks' + projectParam()).then(function(data) {
+        var el = document.getElementById('history-list');
+        if (!data.results.length) { el.innerHTML = '<div class="empty-state">No history yet</div>'; return; }
+        el.innerHTML = '<table>'
+            + '<thead><tr><th>Spec</th><th>Task</th><th>Verdict</th><th>Feedback</th><th>Status</th><th>User Notes</th><th>Diff</th><th>Date</th></tr></thead>'
+            + '<tbody>'
+            + data.results.map(function(r) {
+                var specLabel = r.spec_number ? escapeHtml(r.spec_number) + ': ' + escapeHtml(r.spec_title || '') : 'Task #' + r.task_id;
+                var taskLabel = r.done_when_item === '__draft_review__' ? 'Draft Review' : escapeHtml((r.done_when_item || '').substring(0, 150));
+                var verdictBadge = r.adversarial_verdict ? '<span class="badge badge-' + (r.adversarial_verdict === 'PASS' ? 'pass' : 'fail') + '">' + r.adversarial_verdict + '</span>' : '<span class="badge badge-queued">\u2014</span>';
+                var feedback = '';
+                if (r.adversarial_report && typeof r.adversarial_report === 'object') {
+                    var rpt = r.adversarial_report;
+                    var cw = 0, gw = 0;
+                    (rpt.issues || []).forEach(function(i) { if (i.final_side === 'author') cw++; else if (i.final_side === 'challenger') gw++; });
+                    feedback = 'Claude ' + cw + ' \u2014 ' + gw + ' Gemini';
+                }
+                var statusBadge = r.approved === true ? '<span class="badge badge-pass">Approved</span>' : r.approved === false ? '<span class="badge badge-fail">Rejected</span>' : '<span class="badge badge-pending">Pending</span>';
+                var userNotes = r.reject_reason ? escapeHtml(r.reject_reason) : '\u2014';
+                var diffLink = r.diff_summary ? '<span class="diff-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">View diff</span><div style="display:none" class="diff-area">' + escapeHtml(r.diff_summary) + '</div>' : '\u2014';
+                var date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '\u2014';
+                return '<tr><td>' + specLabel + '</td><td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + taskLabel + '</td><td>' + verdictBadge + '</td><td style="font-size:11px;color:var(--text-dim);max-width:200px">' + feedback + '</td><td>' + statusBadge + '</td><td style="font-size:11px;max-width:150px">' + userNotes + '</td><td>' + diffLink + '</td><td style="font-size:11px;color:var(--text-dim)">' + date + '</td></tr>';
+            }).join('')
+            + '</tbody></table>';
+    }).catch(function() {});
+}
+
+// ---- Health ----
+function loadHealth() {
+    Promise.all([
+        api('/health/ground-truth'),
+        api('/health/drift'),
+        api('/health/deployment'),
+    ]).then(function(results) {
+        renderHealthSummary(results[0]);
+        renderHealthSpecs(results[0]);
+        renderDriftSignals(results[1]);
+        renderDeployment(results[2]);
+    }).catch(function(e) {
+        document.getElementById('health-summary').innerHTML = '<div class="empty-state">Failed to load health data</div>';
+    });
+}
+
+function renderHealthSummary(data) {
+    var el = document.getElementById('health-summary');
+    el.innerHTML = '<div style="display:flex;gap:16px;flex-wrap:wrap">'
+        + _healthCard('Total Specs', data.total_specs, '')
+        + _healthCard('Spec Checked', data.total_spec_checked, 'badge-pass')
+        + _healthCard('Dashboard Aware', data.total_dashboard_aware, data.total_dashboard_aware < data.total_spec_checked ? 'badge-fail' : 'badge-pass')
+        + _healthCard('Mismatches', data.mismatch_count, data.mismatch_count > 0 ? 'badge-fail' : 'badge-pass')
+        + '</div>';
+    document.getElementById('health-timestamp').textContent = data.scan_timestamp ? 'Scanned: ' + new Date(data.scan_timestamp).toLocaleTimeString() : '';
+}
+
+function _healthCard(label, value, badgeClass) {
+    return '<div style="background:var(--card-bg,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:12px 20px;min-width:120px;text-align:center">'
+        + '<div style="font-size:24px;font-weight:bold">' + (badgeClass ? '<span class="badge ' + badgeClass + '" style="font-size:20px;padding:4px 12px">' + value + '</span>' : value) + '</div>'
+        + '<div style="color:var(--text-dim);font-size:12px;margin-top:4px">' + label + '</div></div>';
+}
+
+function renderHealthSpecs(data) {
+    var el = document.getElementById('health-specs');
+    if (!data.specs.length) { el.innerHTML = '<div class="empty-state">No specs found</div>'; return; }
+
+    // Group by band
+    var bands = {};
+    data.specs.forEach(function(s) {
+        if (!bands[s.band]) bands[s.band] = [];
+        bands[s.band].push(s);
+    });
+
+    var html = '';
+    var bandOrder = ['vision', 'foundation', 'mvp', 'v1', 'v2', 'backlog'];
+    bandOrder.forEach(function(band) {
+        if (!bands[band]) return;
+        html += '<h3 style="margin:16px 0 8px;text-transform:capitalize">' + escapeHtml(band) + '</h3>';
+        bands[band].forEach(function(s) {
+            var pct = s.spec_total > 0 ? Math.round(s.spec_ratio * 100) : 0;
+            var barColor = s.has_mismatch ? 'var(--orange)' : 'var(--green)';
+            var statusBadge = '<span class="badge badge-' + s.status + '">' + s.status + '</span>';
+            var mismatchNote = s.has_mismatch
+                ? ' <span style="color:var(--orange);font-size:12px">(' + s.untracked_items.length + ' untracked)</span>'
+                : '';
+            html += '<div style="background:var(--card-bg,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+                + '<span><strong>' + escapeHtml(s.number) + '</strong>: ' + escapeHtml(s.title) + ' ' + statusBadge + '</span>'
+                + '<span style="font-size:12px;color:var(--text-dim)">Spec: ' + s.spec_checked + '/' + s.spec_total + ' | DB: ' + s.dashboard_aware + mismatchNote + '</span>'
+                + '</div>'
+                + '<div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">'
+                + '<div style="background:' + barColor + ';height:100%;width:' + pct + '%;transition:width 0.3s"></div>'
+                + '</div></div>';
+        });
+    });
+    el.innerHTML = html;
+}
+
+function renderDriftSignals(data) {
+    var el = document.getElementById('health-drift');
+    if (data.clean) { el.innerHTML = '<div style="color:var(--green);font-size:14px">No drift signals detected</div>'; return; }
+
+    var severityBadge = { error: 'badge-fail', warning: 'badge-draft', info: 'badge-queued' };
+    var html = '<h3 style="margin:0 0 8px">Drift Signals</h3>';
+    data.items.forEach(function(item) {
+        html += '<div style="background:var(--card-bg,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px;display:flex;gap:8px;align-items:center">'
+            + '<span class="badge ' + (severityBadge[item.severity] || 'badge-queued') + '">' + item.severity + '</span>'
+            + '<span>' + escapeHtml(item.description) + '</span>'
+            + (item.spec_ref ? '<span style="color:var(--text-dim);font-size:12px">' + escapeHtml(item.spec_ref) + '</span>' : '')
+            + '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function renderDeployment(data) {
+    var el = document.getElementById('health-deployment');
+    if (data.deployed_commit === 'unknown' && data.latest_commit === 'unknown') {
+        el.innerHTML = '<div style="color:var(--text-dim);font-size:12px">Deployment status unavailable</div>';
+        return;
+    }
+    var statusColor = { current: 'var(--green)', stale: 'var(--orange)', outdated: 'var(--red)', unknown: 'var(--text-dim)' };
+    var statusLabel = { current: 'Up to date', stale: 'Behind', outdated: 'Outdated', unknown: 'Unknown' };
+    var color = statusColor[data.status] || 'var(--text-dim)';
+    var label = statusLabel[data.status] || data.status;
+    var behind = data.commits_behind !== null ? ' (' + data.commits_behind + ' commits behind)' : '';
+
+    el.innerHTML = '<div style="background:var(--card-bg,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center">'
+        + '<div><strong>Deployment</strong><span style="color:var(--text-dim);font-size:12px;margin-left:8px">Deployed: ' + escapeHtml((data.deployed_commit || '').substring(0, 7)) + ' | Latest: ' + escapeHtml((data.latest_commit || '').substring(0, 7)) + '</span></div>'
+        + '<span style="color:' + color + ';font-weight:bold">' + label + behind + '</span>'
+        + '</div>';
+}
+
+function healthSync() {
+    toast('Syncing...', '');
+    api('/health/sync', { method: 'POST', body: '{}' })
+        .then(function(data) {
+            toast('Synced: ' + data.imported + ' items imported', 'success');
+            loadHealth();
+        })
+        .catch(function() { toast('Sync failed', 'error'); });
+}
+
+// ---- Toast ----
+function toast(msg, type) {
+    type = type || '';
+    var el = document.createElement('div');
+    el.className = 'toast' + (type ? ' ' + type : '');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function() { el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 300); }, 4000);
+}
+
+// ---- Helpers ----
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

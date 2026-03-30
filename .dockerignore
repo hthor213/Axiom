@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+
+# Credentials (never bake into image)
+credentials/
+.env
+.env.*
+
+# IDE
+.vscode
+.idea
+.claude
+
+# Docs and specs (mounted as /repo volume instead)
+docs/
+specs/
+plans/
+tests/
+
+# Large files
+*.enc
+*.db

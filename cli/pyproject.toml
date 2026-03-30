@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hth-platform-cli"
+version = "0.1.0"
+description = "HTH AI Dev Framework — Platform CLI"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+hth-platform = "platform_cli:cli"
+
+[tool.setuptools]
+py-modules = ["platform_cli"]
+packages = ["commands"]
